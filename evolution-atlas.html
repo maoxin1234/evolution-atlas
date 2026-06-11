@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生命之树 · 生物进化图谱 — On the Origin of Species</title>
+<style>
+  :root{
+    --green:#1f3a2e; --green-dark:#16271f; --green-deep:#0c1410;
+    --gold:#c8a85a; --gold-bright:#e7cd86; --gold-dim:#8a743c;
+    --parchment:#e7ddc4; --parchment-dark:#d6c9a8;
+    --ink:#2c2418; --ink-soft:#4a3f2c;
+    --accent:#a882ff;          /* Obsidian 紫 */
+    --accent-dim:#6c5aa8;
+    --graph-bg:#11171a;        /* Obsidian 图谱深色底 */
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:"Georgia","Times New Roman","Songti SC","STSong",serif;
+    background:var(--green-deep); color:var(--parchment); overflow:hidden;
+  }
+  /* ===== 封面式标题栏 ===== */
+  header{
+    position:relative;
+    background:linear-gradient(180deg, var(--green) 0%, var(--green-dark) 100%);
+    border-bottom:3px double var(--gold);
+    padding:12px 24px 10px; text-align:center;
+    box-shadow:0 6px 24px rgba(0,0,0,.5); z-index:5;
+  }
+  header::before,header::after{content:"";position:absolute;left:14px;right:14px;height:1px;background:var(--gold-dim);}
+  header::before{top:5px;} header::after{bottom:5px;}
+  .crest{font-size:10px;letter-spacing:5px;color:var(--gold);text-transform:uppercase;margin-bottom:3px;}
+  h1{margin:1px 0;font-size:26px;font-weight:normal;letter-spacing:3px;color:var(--gold-bright);text-shadow:0 1px 0 #00000080;}
+  .subtitle{font-size:12px;font-style:italic;color:var(--parchment-dark);letter-spacing:1px;}
+  .subtitle .latin{color:var(--gold);font-style:italic;}
+  .byline{font-size:10.5px;color:var(--gold-dim);margin-top:4px;letter-spacing:2px;}
+
+  /* ===== 布局 ===== */
+  #stage{position:absolute;top:92px;bottom:0;left:0;right:0;display:flex;}
+  #canvas-wrap{
+    flex:1;position:relative;overflow:hidden;cursor:grab;
+    background:
+      radial-gradient(ellipse 70% 60% at 45% 45%, #1b2a2410 0%, transparent 70%),
+      var(--graph-bg);
+  }
+  #canvas-wrap.dragging{cursor:grabbing;}
+  svg#graph{width:100%;height:100%;display:block;}
+
+  .link{stroke:#4a5b52;stroke-width:1.3;opacity:.5;transition:stroke .15s,opacity .15s,stroke-width .15s;}
+  .link.assoc{stroke:var(--accent-dim);stroke-dasharray:4 4;opacity:.45;}
+  .link.hot{stroke:var(--accent);opacity:.95;stroke-width:2.4;}
+  .link.faded{opacity:.06;}
+
+  .node{cursor:pointer;}
+  .node circle{stroke:#0c1410;stroke-width:1.5;transition:stroke .15s,stroke-width .15s;}
+  .node:hover circle{stroke:var(--gold-bright);stroke-width:2.5;}
+  .node.selected circle{stroke:#fff;stroke-width:3;}
+  .node.extinct circle{stroke-dasharray:3 2;stroke:var(--parchment-dark);}
+  .node .halo{fill:none;opacity:0;transition:opacity .2s;}
+  .node:hover .halo,.node.selected .halo{opacity:.4;}
+  .node text{
+    fill:var(--parchment);font-size:11px;paint-order:stroke;
+    stroke:var(--graph-bg);stroke-width:3px;pointer-events:none;
+    transition:fill .15s,opacity .15s;
+  }
+  .node text.latin{font-style:italic;fill:#9fb0a6;font-size:9px;}
+  .node.faded{opacity:.16;}
+  .node.faded text{opacity:0;}
+
+  /* ===== 详情侧栏（Obsidian 笔记面板 + 羊皮纸） ===== */
+  #panel{
+    width:0;transition:width .32s cubic-bezier(.4,0,.2,1);
+    background:repeating-linear-gradient(0deg,#e7ddc4 0,#e3d8bd 2px,#e7ddc4 4px),var(--parchment);
+    color:var(--ink);overflow:hidden;position:relative;
+    box-shadow:-8px 0 30px rgba(0,0,0,.55);z-index:4;
+  }
+  #panel.open{width:390px;}
+  .panel-inner{width:390px;height:100%;overflow-y:auto;padding:20px 24px 40px;}
+  .panel-inner::-webkit-scrollbar{width:8px;}
+  .panel-inner::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:4px;}
+  #closeBtn{position:absolute;top:10px;right:12px;z-index:6;background:none;border:1px solid var(--ink-soft);
+    color:var(--ink-soft);width:27px;height:27px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;}
+  #closeBtn:hover{background:var(--ink-soft);color:var(--parchment);}
+  .p-rank{font-size:10.5px;letter-spacing:3px;text-transform:uppercase;color:var(--gold-dim);}
+  .p-name{font-size:25px;margin:2px 0 0;color:var(--green);font-weight:bold;}
+  .p-latin{font-style:italic;font-size:15px;color:var(--ink-soft);margin:0 0 8px;}
+  .p-meta{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px;}
+  .chip{font-size:11px;padding:3px 9px;border-radius:11px;background:var(--green);color:var(--gold-bright);letter-spacing:.5px;}
+  .chip.era{background:var(--ink-soft);}
+  .chip.grp{background:var(--accent-dim);color:#fff;}
+  .p-divider{border:none;border-top:1px solid #b9aa84;margin:13px 0;position:relative;}
+  .p-divider::after{content:"❧";position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+    background:var(--parchment);padding:0 8px;color:var(--gold-dim);font-size:14px;}
+  .p-desc{font-size:14px;line-height:1.75;color:var(--ink);text-align:justify;}
+  /* Obsidian 风格内部 [[链接]] */
+  .ilink{color:var(--accent-dim);text-decoration:none;border-bottom:1px solid #c9b9e6;
+    cursor:pointer;padding:0 1px;font-weight:bold;}
+  .ilink:hover{color:#fff;background:var(--accent-dim);border-radius:3px;border-bottom-color:transparent;}
+  .p-fact{font-size:12.5px;line-height:1.6;margin:4px 0;padding-left:16px;position:relative;}
+  .p-fact::before{content:"❦";position:absolute;left:0;color:var(--gold-dim);}
+  .p-section-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold-dim);margin:15px 0 7px;
+    display:flex;align-items:center;gap:6px;}
+  .p-section-title .cnt{background:var(--accent-dim);color:#fff;border-radius:9px;font-size:10px;padding:0 6px;letter-spacing:0;}
+  .links a{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--green);font-size:13.5px;
+    padding:8px 12px;margin:5px 0;border:1px solid #c2b486;border-radius:6px;background:#00000005;transition:all .15s;}
+  .links a:hover{background:var(--green);color:var(--gold-bright);border-color:var(--green);transform:translateX(3px);}
+  .links .ico{width:20px;text-align:center;font-size:14px;}
+  .links .arrow{margin-left:auto;opacity:.5;}
+  .reflist .ref{display:flex;align-items:baseline;gap:7px;padding:6px 9px;margin:4px 0;border-radius:6px;
+    background:#00000006;border:1px solid #d3c69f;cursor:pointer;}
+  .reflist .ref:hover{background:var(--green);color:var(--gold-bright);}
+  .reflist .ref:hover .r-latin,.reflist .ref:hover .r-rel{color:var(--gold-bright);}
+  .reflist .r-name{font-weight:bold;font-size:13.5px;}
+  .reflist .r-latin{font-style:italic;font-size:11px;color:var(--ink-soft);}
+  .reflist .r-rel{margin-left:auto;font-size:10.5px;color:var(--accent-dim);white-space:nowrap;}
+
+  /* ===== 控制条 ===== */
+  #controls{position:absolute;top:12px;left:12px;z-index:3;display:flex;flex-direction:column;gap:8px;}
+  .ctl-row{display:flex;gap:7px;align-items:center;}
+  #search{background:#1a2420;border:1px solid var(--gold-dim);color:var(--parchment);padding:8px 12px;
+    border-radius:6px;font-family:inherit;font-size:13px;width:220px;outline:none;}
+  #search:focus{border-color:var(--accent);}
+  #search::placeholder{color:#7a8a80;font-style:italic;}
+  .btn{background:#1a2420;border:1px solid var(--gold-dim);color:var(--gold);min-width:34px;height:34px;padding:0 8px;
+    border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s;gap:5px;}
+  .btn:hover{background:var(--gold);color:var(--graph-bg);}
+  .btn.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn .lbl{font-size:11px;letter-spacing:1px;}
+  #suggest{background:#1a2420;border:1px solid var(--gold-dim);border-radius:6px;max-height:230px;overflow-y:auto;width:220px;display:none;}
+  #suggest div{padding:6px 12px;cursor:pointer;font-size:13px;color:var(--parchment);border-bottom:1px solid #ffffff10;}
+  #suggest div:hover{background:var(--accent-dim);}
+  #suggest .sl{font-style:italic;color:#9fb0a6;font-size:11px;margin-left:6px;}
+
+  /* 图例 */
+  #legend{position:absolute;bottom:12px;left:12px;z-index:3;background:#0c1410d9;border:1px solid var(--gold-dim);
+    border-radius:8px;padding:9px 13px;font-size:11px;color:var(--parchment-dark);max-width:340px;}
+  #legend b{color:var(--gold);letter-spacing:1px;}
+  .leg-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;margin-top:5px;}
+  .leg-item{display:flex;align-items:center;gap:6px;}
+  .leg-dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;}
+  .leg-foot{margin-top:6px;border-top:1px solid #ffffff15;padding-top:5px;display:flex;gap:14px;flex-wrap:wrap;}
+  .leg-foot span{display:flex;align-items:center;gap:5px;}
+  .lf-line{width:18px;height:0;border-top:1.5px solid #4a5b52;}
+  .lf-line.assoc{border-top:1.5px dashed var(--accent-dim);}
+  #hint{position:absolute;bottom:12px;right:12px;z-index:3;font-size:11px;color:#5f7065;font-style:italic;}
+
+  /* 标签筛选条 */
+  #filterBar{position:absolute;top:104px;left:12px;z-index:3;display:none;flex-wrap:wrap;gap:6px;max-width:62%;
+    background:#0c1410ec;border:1px solid var(--gold-dim);border-radius:8px;padding:9px 11px;}
+  #filterBar.open{display:flex;}
+  .tagchip{font-size:11.5px;padding:4px 11px;border-radius:13px;cursor:pointer;border:1px solid #ffffff22;
+    background:#1a2420;color:var(--parchment-dark);user-select:none;display:flex;align-items:center;gap:5px;}
+  .tagchip .sw{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+  .tagchip:hover{border-color:var(--gold);}
+  .tagchip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .tagchip.status.on{background:var(--gold);color:var(--graph-bg);border-color:var(--gold);}
+  .node.filtered,.link.filtered{display:none;}
+
+  /* 时间轴 */
+  .era-band{opacity:.55;}
+  .era-label{fill:#cdbf9b;font-size:13px;font-style:italic;letter-spacing:2px;text-anchor:middle;opacity:.85;}
+  .lane-label{fill:#9fb0a6;font-size:11.5px;text-anchor:end;}
+  .axis-tick{stroke:#4a5b52;stroke-width:1;stroke-dasharray:2 4;opacity:.4;}
+  .axis-time{fill:#8a9a90;font-size:10.5px;text-anchor:middle;}
+  /* 大灭绝标记 + 时间游标 */
+  .ext-line{stroke:#d2694a;stroke-width:1.4;stroke-dasharray:5 3;opacity:.7;}
+  .ext-label{fill:#e08a6e;font-size:10px;text-anchor:middle;font-style:italic;}
+  #cursorLine{stroke:var(--accent);stroke-width:2;cursor:ew-resize;}
+  #cursorHit{stroke:transparent;stroke-width:16;cursor:ew-resize;}
+  #cursorLabel{fill:#fff;font-size:12px;text-anchor:middle;font-weight:bold;}
+  #cursorBadge{fill:var(--accent);}
+  .node.pre-exist{opacity:.12;}
+  .node.pre-exist text{opacity:0;}
+
+  /* 节点缩略图（图谱内，可选） */
+  .node image{clip-path:circle(50%);}
+
+  /* 详情面板缩略图 + 来源 */
+  .wiki-box{margin:10px 0 2px;min-height:4px;}
+  .wiki-thumb{width:100%;max-height:170px;object-fit:cover;border-radius:6px;border:1px solid #c2b486;display:block;margin-bottom:8px;}
+  .wiki-extract{font-size:13px;line-height:1.65;color:var(--ink-soft);}
+  .wiki-src{font-size:10.5px;color:var(--gold-dim);margin-top:4px;font-style:italic;}
+  .wiki-loading{font-size:12px;color:var(--gold-dim);font-style:italic;}
+
+  /* 溯源 / 路径 */
+  .link.path{stroke:#e7cd86 !important;stroke-width:3.2 !important;opacity:1 !important;stroke-dasharray:none !important;}
+  .node.path circle{stroke:#e7cd86;stroke-width:3;}
+  .node.mrca circle{stroke:#fff;stroke-width:4;}
+  .path-banner{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;
+    background:#0c1410ee;border:1px solid var(--gold);color:var(--gold-bright);border-radius:8px;
+    padding:7px 16px;font-size:12.5px;display:none;letter-spacing:.5px;max-width:80%;text-align:center;}
+  .path-banner.show{display:block;}
+  .path-banner b{color:#fff;}
+
+  /* 导出下拉 */
+  #exportMenu{position:absolute;z-index:7;background:#1a2420;border:1px solid var(--gold-dim);border-radius:7px;
+    padding:5px;display:none;flex-direction:column;gap:3px;min-width:150px;}
+  #exportMenu.open{display:flex;}
+  #exportMenu button{background:none;border:none;color:var(--parchment);font-family:inherit;font-size:13px;
+    text-align:left;padding:7px 11px;border-radius:5px;cursor:pointer;}
+  #exportMenu button:hover{background:var(--accent-dim);color:#fff;}
+
+  /* 无障碍焦点 */
+  .node:focus{outline:none;}
+  .node.kbfocus circle{stroke:var(--gold-bright);stroke-width:3;}
+  @media (max-width:760px){#panel.open{width:100%;position:absolute;right:0;}#panel.open .panel-inner{width:100%;}h1{font-size:21px;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="crest">✦ ANNO MDCCCLIX ✦</div>
+  <h1>生&nbsp;命&nbsp;之&nbsp;树</h1>
+  <div class="subtitle">生物进化知识图谱 · <span class="latin">On the Origin of Species</span></div>
+  <div class="byline">拖动节点 · 悬停查看关联网络 · 笔记内 [[ 双向链接 ]] · 连通权威百科</div>
+</header>
+
+<div id="stage">
+  <div id="canvas-wrap">
+    <div id="controls">
+      <div class="ctl-row"><input id="search" placeholder="搜索生物（恐龙 / Homo / 三叶虫）…" autocomplete="off"></div>
+      <div id="suggest"></div>
+      <div class="ctl-row">
+        <button class="btn" id="zoomIn" title="放大">＋</button>
+        <button class="btn" id="zoomOut" title="缩小">－</button>
+        <button class="btn" id="fit" title="适配视图">⤢</button>
+        <button class="btn" id="freeze" title="冻结/恢复物理布局"><span class="lbl">❄ 物理</span></button>
+        <button class="btn" id="localBtn" title="局部图谱：只显示选中节点的邻域"><span class="lbl">◎ 局部</span></button>
+      </div>
+      <div class="ctl-row">
+        <button class="btn" id="timelineBtn" title="时间轴：按地质年代排布"><span class="lbl">🕒 时间轴</span></button>
+        <button class="btn" id="tagBtn" title="标签筛选"><span class="lbl">🏷 标签</span></button>
+        <button class="btn" id="exportBtn" title="导出图片（PNG / SVG）"><span class="lbl">⬇ 导出</span></button>
+      </div>
+      <div class="ctl-row">
+        <button class="btn" id="traceBtn" title="溯源：依次点两个物种，高亮到最近共同祖先的路径"><span class="lbl">🧭 溯源</span></button>
+        <button class="btn" id="langBtn" title="切换语言 / Language"><span class="lbl">中 / EN</span></button>
+      </div>
+    </div>
+    <div id="filterBar"></div>
+    <div id="exportMenu">
+      <button data-fmt="png">⬇ 导出 PNG（高清位图）</button>
+      <button data-fmt="svg">⬇ 导出 SVG（矢量图）</button>
+    </div>
+    <div id="pathBanner" class="path-banner"></div>
+
+    <svg id="graph"><g id="viewport">
+      <g id="eras"></g>
+      <g id="axis"></g>
+      <g id="links"></g>
+      <g id="nodes"></g>
+    </g></svg>
+
+    <div id="legend">
+      <b>图&nbsp;例 · LEGENDA</b>
+      <div class="leg-grid" id="legGrid"></div>
+      <div class="leg-foot">
+        <span><span class="lf-line"></span>演化亲缘（树枝）</span>
+        <span><span class="lf-line assoc"></span>关联 / 协同演化</span>
+      </div>
+    </div>
+    <div id="hint">拖拽节点重排 · 滚轮缩放 · 点击查看笔记</div>
+  </div>
+
+  <aside id="panel"><button id="closeBtn">✕</button><div class="panel-inner" id="panelInner"></div></aside>
+</div>
+
+<script>
+/* ===================== 数据：生命之树 ===================== */
+const TREE = {
+  name:"生命", latin:"LUCA · 末次共同祖先", rank:"生命之起源", era:"约38亿年前 · 太古宙", extinct:false,
+  desc:"地球上一切已知生命的最后共同祖先（Last Universal Common Ancestor）。它是一种生活在约38亿年前、可能栖居于深海热泉口的单细胞生物，已具备DNA、RNA与蛋白质合成的基本机制。今日万物——细菌、植物、动物与人类——皆为它的后裔。",
+  facts:["所有生物共享几乎相同的遗传密码，是同源演化的有力证据","达尔文在《物种起源》中写道：生命最初被注入到少数或单个类型之中"],
+  wiki:"Last_universal_common_ancestor", zh:"最后共同祖先", baike:"露卡", eol:"life",
+  children:[
+    { name:"细菌域", latin:"Bacteria", rank:"域 Domain", era:"太古宙至今", extinct:false,
+      desc:"地球上数量最庞大、分布最广的生命形式。无细胞核的原核生物，从深海到人体肠道无处不在，主导着地球的物质循环。",
+      facts:["蓝细菌的光合作用造就了远古大氧化事件","人体内细菌细胞数量与人体细胞相当"],
+      wiki:"Bacteria", zh:"细菌", baike:"细菌", eol:"Bacteria",
+      children:[
+        {name:"蓝细菌", latin:"Cyanobacteria", rank:"门", era:"约35亿年前", extinct:false,
+         desc:"最早进行产氧光合作用的生物，叠层石是它们的远古遗迹。其内共生后代成为植物细胞中的叶绿体，深刻塑造了真核生物。",
+         facts:["催生约24亿年前的大氧化事件"], wiki:"Cyanobacteria", zh:"藍菌", baike:"蓝细菌", eol:"Cyanobacteria"}
+      ]},
+    { name:"古菌域", latin:"Archaea", rank:"域 Domain", era:"太古宙至今", extinct:false,
+      desc:"形态似细菌、本质却独立的一支原核生物。许多栖息于火山、盐湖、强酸等极端环境。真核生物可能正是从古菌中演化而来。",
+      facts:["产甲烷菌即属古菌","真核细胞或源于古菌与细菌的内共生"],
+      wiki:"Archaea", zh:"古菌", baike:"古菌", eol:"Archaea"},
+    { name:"真核生物域", latin:"Eukaryota", rank:"域 Domain", era:"约18亿年前至今", extinct:false,
+      desc:"细胞拥有真正细胞核与线粒体等细胞器的生物。线粒体源自被吞噬的细菌，叶绿体源自蓝细菌（内共生学说）。这一支日后演化出真菌、植物与动物。",
+      facts:["内共生学说由林恩·马古利斯确立","囊括了一切肉眼可见的生命"],
+      wiki:"Eukaryote", zh:"真核生物", baike:"真核生物", eol:"Eukaryota",
+      children:[
+        { name:"植物界", latin:"Plantae", rank:"界 Kingdom", era:"约8亿年前至今", extinct:false,
+          desc:"以光合作用为生的多细胞真核生物。从海洋藻类登上陆地，铺就陆地生态系统的基础，为动物的登陆创造了条件。",
+          facts:["陆生植物约4.7亿年前登陆","被子植物是当今最繁盛的植物类群"],
+          wiki:"Plant", zh:"植物", baike:"植物", eol:"Plantae",
+          children:[
+            {name:"苔藓植物", latin:"Bryophyta", rank:"门", era:"约4.7亿年前至今", extinct:false,
+             desc:"最早登陆的陆生植物之一，无维管束，矮小而依赖潮湿环境，代表植物从水到陆的过渡。",
+             facts:["缺乏维管束，植株矮小"], wiki:"Bryophyte", zh:"苔藓植物", baike:"苔藓植物", eol:"Bryophyta"},
+            {name:"蕨类植物", latin:"Pteridophyta", rank:"门", era:"约3.6亿年前繁盛", extinct:false,
+             desc:"具维管束、以孢子繁殖的植物。石炭纪的巨型蕨类森林造就了今日的煤层。",
+             facts:["石炭纪煤炭森林的主角"], wiki:"Fern", zh:"蕨类植物", baike:"蕨类植物", eol:"Polypodiopsida"},
+            {name:"裸子植物", latin:"Gymnosperms", rank:"类群", era:"约3.2亿年前至今", extinct:false,
+             desc:"种子裸露、不被果实包裹的种子植物，如松、柏、银杏。中生代曾是恐龙的主要食物。",
+             facts:["银杏是著名的活化石"], wiki:"Gymnosperm", zh:"裸子植物", baike:"裸子植物", eol:"Gymnosperms"},
+            {name:"被子植物", latin:"Angiosperms", rank:"类群", era:"约1.3亿年前至今", extinct:false,
+             desc:"开花结果的种子植物，凭借花与果实和昆虫协同演化，成为当今陆地最占优势的植物。达尔文曾称其骤然繁盛为讨厌之谜。",
+             facts:["与传粉昆虫的协同演化是经典案例","包含几乎所有粮食作物"], wiki:"Flowering_plant", zh:"被子植物", baike:"被子植物", eol:"Angiosperms"}
+          ]},
+        { name:"真菌界", latin:"Fungi", rank:"界 Kingdom", era:"约10亿年前至今", extinct:false,
+          desc:"以菌丝吸收营养、靠孢子繁殖的真核生物。它们是自然界的主要分解者，与植物根系共生。演化上，真菌与动物的亲缘关系比与植物更近。",
+          facts:["蘑菇、霉菌、酵母皆属真菌","青霉素来自真菌"],
+          wiki:"Fungus", zh:"真菌", baike:"真菌", eol:"Fungi"},
+        { name:"动物界", latin:"Animalia", rank:"界 Kingdom", era:"约6亿年前至今", extinct:false,
+          desc:"多细胞、靠摄食他者维生的真核生物。约5.4亿年前的寒武纪生命大爆发中，几乎所有现存动物门类在短期内集中涌现。",
+          facts:["寒武纪大爆发是演化史的关键节点","已知动物逾150万种"],
+          wiki:"Animal", zh:"动物", baike:"动物", eol:"Animalia",
+          children:[
+            {name:"刺胞动物", latin:"Cnidaria", rank:"门", era:"约6亿年前至今", extinct:false,
+             desc:"水母、珊瑚、海葵等具刺细胞的辐射对称动物，是最早的多细胞动物之一。",
+             facts:["珊瑚礁生物多样性极高"], wiki:"Cnidaria", zh:"刺胞动物", baike:"刺胞动物门", eol:"Cnidaria"},
+            {name:"软体动物", latin:"Mollusca", rank:"门", era:"寒武纪至今", extinct:false,
+             desc:"蜗牛、章鱼、贝类等，身体柔软、多具外壳。头足类拥有无脊椎动物中最发达的神经系统。",
+             facts:["章鱼智力堪称无脊椎动物之冠"], wiki:"Mollusca", zh:"软体动物", baike:"软体动物", eol:"Mollusca"},
+            {name:"棘皮动物", latin:"Echinodermata", rank:"门", era:"寒武纪至今", extinct:false,
+             desc:"海星、海胆、海参等具五辐对称与水管系统的海洋动物。其幼体两侧对称，演化上与脊索动物同属后口动物，亲缘相对接近。",
+             facts:["独特的水管系统驱动管足","与脊索动物同为后口动物"], wiki:"Echinoderm", zh:"棘皮动物", baike:"棘皮动物", eol:"Echinodermata"},
+            { name:"节肢动物", latin:"Arthropoda", rank:"门", era:"寒武纪至今", extinct:false,
+              desc:"具外骨骼与分节附肢的动物，是地球上物种最多、个体最繁盛的类群。昆虫、甲壳类、蛛形类皆属此门。",
+              facts:["占已描述动物物种约80%","昆虫是首批飞向天空的动物"],
+              wiki:"Arthropod", zh:"节肢动物", baike:"节肢动物", eol:"Arthropoda",
+              children:[
+                {name:"三叶虫", latin:"Trilobita", rank:"纲（已灭绝）", era:"5.2亿–2.5亿年前 · 古生代", extinct:true,
+                 desc:"古生代海洋的标志性节肢动物，身体分为三叶。演化出已知最早的复杂复眼，繁盛近三亿年，终在二叠纪末大灭绝中消亡。",
+                 facts:["重要的标准化石","复眼由方解石晶体构成"], wiki:"Trilobite", zh:"三叶虫", baike:"三叶虫", eol:"Trilobita"},
+                {name:"奇虾", latin:"Anomalocaris", rank:"属（已灭绝）", era:"约5.2亿年前 · 寒武纪", extinct:true,
+                 desc:"寒武纪生命大爆发中的顶级掠食者，体长可达数十厘米至一米，具一对大型抓握附肢与环形口器，是已知最早的大型捕食动物之一。",
+                 facts:["寒武纪海洋的顶级掠食者","近节肢动物，揭示节肢动物起源"], wiki:"Anomalocaris", zh:"奇蝦", baike:"奇虾", eol:"Anomalocaris"},
+                {name:"昆虫", latin:"Insecta", rank:"纲", era:"约4亿年前至今", extinct:false,
+                 desc:"六足、身体分头胸腹三部的节肢动物，是动物界种类最多的纲，最早演化出飞行能力，与被子植物协同演化。",
+                 facts:["已知逾百万种","最早飞行的动物"], wiki:"Insect", zh:"昆虫", baike:"昆虫", eol:"Insecta"}
+              ]},
+            { name:"脊索动物", latin:"Chordata", rank:"门", era:"寒武纪至今", extinct:false,
+              desc:"在生命某阶段具脊索、背神经管的动物。脊椎动物即源自此门，从无颌鱼一路演化至人类。",
+              facts:["皮卡虫等寒武纪化石被视为早期脊索动物"],
+              wiki:"Chordate", zh:"脊索动物", baike:"脊索动物", eol:"Chordata",
+              children:[
+                {name:"皮卡虫", latin:"Pikaia", rank:"属（已灭绝）", era:"约5.05亿年前 · 寒武纪", extinct:true,
+                 desc:"加拿大布尔吉斯页岩中的小型海洋动物，具原始脊索，长期被视为最早的脊索动物代表之一，处于脊椎动物起源的关键位置。",
+                 facts:["具原始脊索","脊椎动物起源的早期线索"], wiki:"Pikaia", zh:"皮卡蟲", baike:"皮卡虫", eol:"Pikaia"},
+                { name:"鱼类", latin:"Pisces", rank:"类群", era:"约5.3亿年前至今", extinct:false,
+                  desc:"最早的脊椎动物。从无颌的甲胄鱼，到演化出上下颌的盾皮鱼，再到硬骨鱼。鱼类统治了古生代海洋，肉鳍鱼一支最终爬上陆地，成为两栖动物的祖先。",
+                  facts:["颌的出现是脊椎动物演化的重大革新","肉鳍鱼是四足动物的祖先"],
+                  wiki:"Fish", zh:"鱼", baike:"鱼类", eol:"fish",
+                  children:[
+                    {name:"邓氏鱼", latin:"Dunkleosteus", rank:"属（已灭绝）", era:"约3.8亿–3.6亿年前 · 泥盆纪", extinct:true,
+                     desc:"泥盆纪的巨型盾皮鱼，头部覆以厚重骨甲，体长可达数米，咬合力惊人，是当时海洋的顶级掠食者。",
+                     facts:["以剪刀状骨板代替牙齿","鱼类时代泥盆纪的霸主"], wiki:"Dunkleosteus", zh:"鄧氏魚", baike:"邓氏鱼", eol:"Dunkleosteus"},
+                    {name:"腔棘鱼", latin:"Coelacanth", rank:"目", era:"约4亿年前至今", extinct:false,
+                     desc:"曾被认为随恐龙一同灭绝，1938年却在南非海域被重新发现的活化石肉鳍鱼，与四足动物的祖先关系密切。",
+                     facts:["著名的拉撒路类群——死而复现"], wiki:"Coelacanth", zh:"腔棘魚", baike:"腔棘鱼", eol:"Coelacanth"},
+                    {name:"提塔利克鱼", latin:"Tiktaalik", rank:"属（已灭绝）", era:"约3.75亿年前 · 泥盆纪", extinct:true,
+                     desc:"兼具鱼与四足动物特征的著名过渡化石：有鳃、鳞与鳍，却也有能撑地的强壮前肢骨与可活动的颈部，是鱼类登陆的关键一环。",
+                     facts:["鱼鳍中已具腕骨雏形","脊椎动物登陆的标志性过渡物种"], wiki:"Tiktaalik", zh:"提塔利克魚", baike:"提塔利克鱼", eol:"Tiktaalik"}
+                  ]},
+                { name:"两栖动物", latin:"Amphibia", rank:"纲", era:"约3.7亿年前至今", extinct:false,
+                  desc:"由肉鳍鱼演化而来的首批登陆四足脊椎动物，幼体水生、成体可上陆，但繁殖仍离不开水。",
+                  facts:["鱼石螈是最早的四足动物之一","蛙、蝾螈是现存代表"],
+                  wiki:"Amphibian", zh:"两栖动物", baike:"两栖动物", eol:"Amphibia",
+                  children:[
+                    {name:"鱼石螈", latin:"Ichthyostega", rank:"属（已灭绝）", era:"约3.6亿年前 · 泥盆纪晚期", extinct:true,
+                     desc:"最早登陆的四足动物之一，兼具鱼鳍与四肢特征，是脊椎动物登陆这一伟大事件的见证。",
+                     facts:["仍保留鱼类的尾鳍","四肢已能支撑部分体重"], wiki:"Ichthyostega", zh:"魚石螈", baike:"鱼石螈", eol:"Ichthyostega"}
+                  ]},
+                { name:"爬行动物", latin:"Reptilia", rank:"纲", era:"约3.2亿年前至今", extinct:false,
+                  desc:"演化出羊膜卵、彻底摆脱对水繁殖的脊椎动物。中生代由它们的一支——恐龙——主宰大地长达1.6亿年。鸟类即是恐龙的直系后裔。",
+                  facts:["羊膜卵让脊椎动物完全征服陆地","蛇、蜥、龟、鳄为现存代表"],
+                  wiki:"Reptile", zh:"爬行动物", baike:"爬行动物", eol:"Reptilia",
+                  children:[
+                    { name:"恐龙", latin:"Dinosauria", rank:"总目", era:"约2.3亿–0.66亿年前 · 中生代", extinct:false,
+                      desc:"中生代最成功的陆生脊椎动物。约6600万年前的小行星撞击导致非鸟恐龙灭绝，但其中一支——鸟类——延续至今。始祖鸟正是连接恐龙与鸟类的关键化石。",
+                      facts:["鸟类是活着的恐龙","白垩纪末大灭绝终结了非鸟恐龙时代"],
+                      wiki:"Dinosaur", zh:"恐龙", baike:"恐龙", eol:"Dinosauria",
+                      children:[
+                        {name:"霸王龙", latin:"Tyrannosaurus rex", rank:"属（已灭绝）", era:"约6800万–6600万年前 · 白垩纪末", extinct:true,
+                         desc:"白垩纪晚期北美的巨型兽脚类掠食者，体长可达12米，咬合力居陆生动物之冠，与三角龙同处一地，是恐龙的象征。",
+                         facts:["咬合力估计超过3万牛顿","与最后的非鸟恐龙一同灭绝"], wiki:"Tyrannosaurus", zh:"暴龍", baike:"霸王龙", eol:"Tyrannosaurus"},
+                        {name:"三角龙", latin:"Triceratops", rank:"属（已灭绝）", era:"约6800万–6600万年前 · 白垩纪末", extinct:true,
+                         desc:"头具三角与巨大颈盾的植食性角龙类，与霸王龙生活在同一时代、同一地区，是著名的猎物与对手。",
+                         facts:["颈盾与角或用于防御与求偶展示"], wiki:"Triceratops", zh:"三角龍", baike:"三角龙", eol:"Triceratops"}
+                      ]},
+                    { name:"鸟类", latin:"Aves", rank:"纲", era:"约1.5亿年前至今", extinct:false,
+                      desc:"由兽脚类恐龙演化而来的飞行脊椎动物，羽毛最初或为保温与展示，后用于飞翔。它们是恐龙血脉在今日的延续，始祖鸟是其早期代表。",
+                      facts:["现存鸟类逾万种","羽毛先于飞行而演化"],
+                      wiki:"Bird", zh:"鸟", baike:"鸟类", eol:"Aves",
+                      children:[
+                        {name:"始祖鸟", latin:"Archaeopteryx", rank:"属（已灭绝）", era:"约1.5亿年前 · 侏罗纪晚期", extinct:true,
+                         desc:"兼具恐龙特征（牙齿、长骨尾、爪）与鸟类特征（羽毛、叉骨）的著名过渡化石，是连接恐龙与鸟类的关键证据，发现于达尔文发表《物种起源》后不久。",
+                         facts:["最著名的过渡型化石之一","1861年发现，为进化论提供有力佐证"], wiki:"Archaeopteryx", zh:"始祖鳥", baike:"始祖鸟", eol:"Archaeopteryx"}
+                      ]},
+                    { name:"哺乳动物", latin:"Mammalia", rank:"纲", era:"约2.1亿年前至今", extinct:false,
+                      desc:"具毛发、以乳汁哺育后代的恒温脊椎动物。中生代多为夜行小型动物，恐龙灭绝后迅速辐射演化，占据陆海空各类生态位。",
+                      facts:["乳腺哺乳与毛发是关键特征","恐龙灭绝后迎来哺乳动物时代"],
+                      wiki:"Mammal", zh:"哺乳动物", baike:"哺乳动物", eol:"Mammalia",
+                      children:[
+                        {name:"猛犸象", latin:"Mammuthus", rank:"属（已灭绝）", era:"约5百万–4千年前 · 更新世", extinct:true,
+                         desc:"冰河时代覆以长毛、具巨大弯曲象牙的大象近亲，曾遍布北半球，约四千年前在弗兰格尔岛上最终消失。曾与早期智人共存并被猎捕。",
+                         facts:["与早期人类共存并被其猎捕","冻土中保存有完整遗体"], wiki:"Mammoth", zh:"猛獁象", baike:"猛犸象", eol:"Mammuthus"},
+                        {name:"鲸", latin:"Cetacea", rank:"目", era:"约5千万年前至今", extinct:false,
+                         desc:"由陆生偶蹄类祖先重返海洋的哺乳动物，包括蓝鲸、海豚等。它们保留肺呼吸与哺乳特征，是脊椎动物从陆地再适应海洋的杰出范例。",
+                         facts:["蓝鲸是有史以来最大的动物","由陆生哺乳动物演化回海洋"], wiki:"Cetacea", zh:"鲸豚类", baike:"鲸", eol:"Cetacea"},
+                        { name:"灵长目", latin:"Primates", rank:"目", era:"约6500万年前至今", extinct:false,
+                          desc:"具抓握双手、立体视觉与发达大脑的哺乳动物，包含猴、猿与人类。树栖生活塑造了灵巧的手与敏锐的视觉。",
+                          facts:["双眼前视带来立体视觉","拇指对握利于抓握工具"],
+                          wiki:"Primate", zh:"灵长目", baike:"灵长目", eol:"Primates",
+                          children:[
+                            {name:"黑猩猩", latin:"Pan troglodytes", rank:"属种", era:"现存", extinct:false,
+                             desc:"与智人亲缘最近的现存物种，共享约98.8%的基因，能使用工具、具复杂社会行为。",
+                             facts:["人类最近的现存近亲","会制造并使用工具"], wiki:"Chimpanzee", zh:"黑猩猩", baike:"黑猩猩", eol:"Pan%20troglodytes"},
+                            {name:"南方古猿", latin:"Australopithecus", rank:"属（已灭绝）", era:"约420万–200万年前 · 上新世", extinct:true,
+                             desc:"已能两足直立行走、脑容量仍接近猿类的早期人族。著名化石露西（Lucy）即属此属，被视为人类谱系的关键祖先环节。",
+                             facts:["著名化石露西即属此属","直立行走早于大脑增大"], wiki:"Australopithecus", zh:"南方古猿", baike:"南方古猿", eol:"Australopithecus"},
+                            {name:"直立人", latin:"Homo erectus", rank:"种（已灭绝）", era:"约190万–10万年前", extinct:true,
+                             desc:"最早走出非洲、广布欧亚的人属物种，能控制用火、制造更复杂的石器，体态已与现代人接近。",
+                             facts:["最早走出非洲的人属","能控制用火"], wiki:"Homo_erectus", zh:"直立人", baike:"直立人", eol:"Homo%20erectus"},
+                            {name:"尼安德特人", latin:"Homo neanderthalensis", rank:"种（已灭绝）", era:"约40万–4万年前", extinct:true,
+                             desc:"冰期欧亚大陆上体格强健的人属物种，会埋葬死者、使用工具与火，约4万年前消失。现代非洲以外人群仍带有少量其基因。",
+                             facts:["曾与智人共存并杂交","现代人基因中留有其印记"], wiki:"Neanderthal", zh:"尼安德特人", baike:"尼安德特人", eol:"Homo%20neanderthalensis"},
+                            {name:"智人", latin:"Homo sapiens", rank:"种", era:"约30万年前至今", extinct:false,
+                             desc:"现代人类，唯一现存的人属物种。凭借语言、文化与抽象思维改造世界。正是其中一员——查尔斯·达尔文——揭示了使万物如此关联的法则：自然选择。曾与猛犸象、黑猩猩同处演化舞台。",
+                             facts:["起源于非洲","达尔文1859年出版《物种起源》，奠定演化论"], wiki:"Human", zh:"人类", baike:"智人", eol:"Homo%20sapiens"}
+                          ]}
+                      ]}
+                  ]}
+              ]}
+          ]}
+      ]}
+  ]
+};
+
+/* 跨枝关联（Obsidian 式横向链接）：[A, B, 关系标签] */
+const ASSOC = [
+  ["蓝细菌","真核生物域","内共生→叶绿体"],
+  ["古菌域","真核生物域","真核细胞起源"],
+  ["真菌界","动物界","亲缘更近"],
+  ["被子植物","昆虫","协同演化·传粉"],
+  ["腔棘鱼","鱼石螈","肉鳍鱼→四足登陆"],
+  ["邓氏鱼","鱼类","泥盆纪鱼类时代"],
+  ["恐龙","鸟类","鸟为恐龙后裔"],
+  ["始祖鸟","恐龙","过渡化石"],
+  ["始祖鸟","鸟类","过渡化石"],
+  ["智人","猛犸象","狩猎·共存"],
+  ["智人","黑猩猩","最近近亲98.8%"],
+  ["提塔利克鱼","鱼石螈","鱼→四足过渡"],
+  ["提塔利克鱼","腔棘鱼","肉鳍鱼近亲"],
+  ["奇虾","三叶虫","寒武纪海洋"],
+  ["皮卡虫","鱼类","最早脊索→脊椎"],
+  ["棘皮动物","脊索动物","同为后口动物"],
+  ["尼安德特人","智人","共存·杂交"],
+  ["南方古猿","智人","人族祖先"],
+  ["直立人","智人","人属演化"]
+];
+
+/* ===================== 构图：节点 + 边 ===================== */
+const COLOR_MAP = {
+  "生命":"#e7cd86","细菌域":"#3fae8f","古菌域":"#e08a3c","真核生物域":"#c8a85a",
+  "植物界":"#5bb360","真菌界":"#b07cc6","动物界":"#c8a85a","节肢动物":"#d9a441",
+  "脊索动物":"#7d8fb3","鱼类":"#4f9dde","两栖动物":"#3fb6a0","爬行动物":"#9a8b3f",
+  "恐龙":"#c0863f","鸟类":"#6db1e8","哺乳动物":"#d2694a","灵长目":"#e0b34a"
+};
+const LEGEND = [
+  ["生命起源","#e7cd86"],["细菌/古菌","#3fae8f"],["植物","#5bb360"],["真菌","#b07cc6"],
+  ["节肢动物","#d9a441"],["鱼类","#4f9dde"],["两栖/爬行","#9a8b3f"],["恐龙","#c0863f"],
+  ["鸟类","#6db1e8"],["哺乳/灵长","#d2694a"]
+];
+
+const NODES=[], byName={}, LINKS=[];
+(function flatten(n,parent){
+  n.x=600+(Math.random()-.5)*400; n.y=320+(Math.random()-.5)*300; n.vx=0; n.vy=0;
+  n.deg=0; NODES.push(n); byName[n.name]=n;
+  if(parent){ LINKS.push({s:parent,t:n,type:"tree"}); parent.deg++; n.deg++; }
+  (n.children||[]).forEach(c=>flatten(c,n));
+})(TREE,null);
+ASSOC.forEach(([a,b,rel])=>{
+  const s=byName[a], t=byName[b];
+  if(s&&t){ LINKS.push({s,t,type:"assoc",rel}); s.deg++; t.deg++; }
+});
+// 颜色 & 半径
+NODES.forEach(n=>{
+  let cur=n, col="#c8a85a";
+  while(cur){ if(COLOR_MAP[cur.name]){ col=COLOR_MAP[cur.name]; break;} cur=cur._parent; }
+  // 因 flatten 未存 _parent，用 LINKS 重建父子查找
+});
+// 用 tree 边建立父引用以便取色
+LINKS.filter(l=>l.type==="tree").forEach(l=>{ l.t._parent=l.s; });
+NODES.forEach(n=>{
+  let cur=n, col="#c8a85a";
+  while(cur){ if(COLOR_MAP[cur.name]){ col=COLOR_MAP[cur.name]; break;} cur=cur._parent; }
+  n.color=col;
+  n.r = 6 + Math.min(9, n.deg*1.6) + (n===TREE?4:0);
+});
+/* 地质年代（首次出现，单位 百万年前 Mya）与粗分类标签 */
+const TIME={ 生命:3800, 细菌域:3500, 蓝细菌:3500, 古菌域:3500, 真核生物域:1800,
+  植物界:800, 苔藓植物:470, 蕨类植物:360, 裸子植物:320, 被子植物:130,
+  真菌界:1000, 动物界:600, 刺胞动物:600, 软体动物:540, 棘皮动物:540, 节肢动物:540, 三叶虫:520, 奇虾:520, 昆虫:400,
+  脊索动物:530, 皮卡虫:505, 鱼类:530, 邓氏鱼:380, 腔棘鱼:400, 提塔利克鱼:375, 两栖动物:370, 鱼石螈:365,
+  爬行动物:320, 恐龙:230, 霸王龙:68, 三角龙:68, 鸟类:150, 始祖鸟:150,
+  哺乳动物:210, 猛犸象:5, 鲸:50, 灵长目:65, 黑猩猩:6, 南方古猿:3.5, 直立人:1.5, 尼安德特人:0.4, 智人:0.3 };
+const COARSE={ 细菌域:"微生物", 古菌域:"微生物", 真核生物域:"微生物",
+  植物界:"植物", 真菌界:"真菌", 动物界:"动物",
+  刺胞动物:"无脊椎动物", 软体动物:"无脊椎动物", 棘皮动物:"无脊椎动物", 节肢动物:"无脊椎动物",
+  鱼类:"鱼类", 两栖动物:"两栖·爬行", 爬行动物:"两栖·爬行", 恐龙:"两栖·爬行",
+  鸟类:"鸟类", 哺乳动物:"哺乳动物", 生命:"生命起源" };
+NODES.forEach(n=>{
+  n.mya = TIME[n.name]!==undefined ? TIME[n.name] : 0.3;
+  let cur=n; while(cur){ if(COARSE[cur.name]){ n.coarse=COARSE[cur.name]; break;} cur=cur._parent; }
+  if(!n.coarse) n.coarse="动物";
+  n.status = n.extinct?"已灭绝":"现存";
+  n._hidden=false;
+});
+// 邻接表
+const adj={}; NODES.forEach(n=>adj[n.name]=new Set());
+LINKS.forEach(l=>{ adj[l.s.name].add(l.t.name); adj[l.t.name].add(l.s.name); });
+
+/* ===================== 力导向物理 ===================== */
+const svgNS="http://www.w3.org/2000/svg";
+const linksG=document.getElementById('links'), nodesG=document.getElementById('nodes');
+let alpha=1, frozen=false, dragNode=null;
+const REPULSION=5200, CENTER=0.012, DAMP=0.86;
+
+let running=false;
+function kick(){ if(!running){ running=true; requestAnimationFrame(tick); } }
+function tick(){
+  if(frozen || alpha<=0.005){ draw(); running=false; return; }  // 稳定后停止循环，让页面进入空闲
+  {
+    // 斥力
+    for(let i=0;i<NODES.length;i++){
+      const a=NODES[i];
+      for(let j=i+1;j<NODES.length;j++){
+        const b=NODES[j];
+        let dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy||0.01;
+        let d=Math.sqrt(d2); const f=REPULSION/d2*alpha;
+        const fx=dx/d*f, fy=dy/d*f;
+        a.vx+=fx; a.vy+=fy; b.vx-=fx; b.vy-=fy;
+      }
+    }
+    // 弹簧
+    LINKS.forEach(l=>{
+      const rest = l.type==="assoc"?170:95;
+      const k = l.type==="assoc"?0.012:0.035;
+      let dx=l.t.x-l.s.x, dy=l.t.y-l.s.y, d=Math.sqrt(dx*dx+dy*dy)||0.01;
+      const f=(d-rest)*k*alpha; const fx=dx/d*f, fy=dy/d*f;
+      l.s.vx+=fx; l.s.vy+=fy; l.t.vx-=fx; l.t.vy-=fy;
+    });
+    // 向心
+    const cx=600, cy=330;
+    NODES.forEach(n=>{ n.vx+=(cx-n.x)*CENTER*alpha; n.vy+=(cy-n.y)*CENTER*alpha; });
+    // 积分
+    NODES.forEach(n=>{
+      if(n===dragNode) return;
+      n.vx*=DAMP; n.vy*=DAMP; n.x+=n.vx; n.y+=n.vy;
+    });
+    collide();
+    alpha*=0.992;
+  }
+  draw();
+  requestAnimationFrame(tick);
+}
+// 碰撞：基于标签宽度的近似包围盒，彻底分开重叠节点与文字
+function collide(){
+  for(let i=0;i<NODES.length;i++){ const a=NODES[i];
+    for(let j=i+1;j<NODES.length;j++){ const b=NODES[j];
+      let dx=b.x-a.x, dy=b.y-a.y, d=Math.hypot(dx,dy)||0.01;
+      const min=a.r+b.r+ (Math.abs(a.y-b.y)<14?Math.min(70,(a.name.length+b.name.length)*5):16);
+      if(d<min){ const push=(min-d)/d*0.5;
+        const px=dx*push, py=dy*push;
+        if(a!==dragNode){ a.x-=px; a.y-=py; }
+        if(b!==dragNode){ b.x+=px; b.y+=py; }
+      }
+    }
+  }
+}
+function reheat(a=0.9){ alpha=Math.max(alpha,a); kick(); }
+
+/* ===================== 渲染 ===================== */
+let selected=null, localMode=false;
+const linkEls=new Map(), nodeEls=new Map();
+function build(){
+  linksG.innerHTML=""; nodesG.innerHTML="";
+  LINKS.forEach((l,i)=>{
+    const p=document.createElementNS(svgNS,'line');
+    p.setAttribute('class','link'+(l.type==="assoc"?' assoc':''));
+    linksG.appendChild(p); linkEls.set(l,p);
+  });
+  NODES.forEach(n=>{
+    const g=document.createElementNS(svgNS,'g');
+    g.setAttribute('class','node'+(n.extinct?' extinct':''));
+    g.dataset.name=n.name;
+    const halo=document.createElementNS(svgNS,'circle');
+    halo.setAttribute('class','halo'); halo.setAttribute('r',n.r+7);
+    halo.setAttribute('fill',n.color);
+    const c=document.createElementNS(svgNS,'circle');
+    c.setAttribute('r',n.r); c.setAttribute('fill',n.color);
+    const t=document.createElementNS(svgNS,'text');
+    t.setAttribute('x',n.r+4); t.setAttribute('y',-1); t.textContent=n.name;
+    const lt=document.createElementNS(svgNS,'text');
+    lt.setAttribute('class','latin'); lt.setAttribute('x',n.r+4); lt.setAttribute('y',10);
+    lt.textContent=n.latin.split(' ·')[0];
+    g.append(halo,c,t,lt); nodesG.appendChild(g); nodeEls.set(n,g);
+  });
+}
+function draw(){
+  LINKS.forEach(l=>{ const e=linkEls.get(l);
+    e.setAttribute('x1',l.s.x); e.setAttribute('y1',l.s.y);
+    e.setAttribute('x2',l.t.x); e.setAttribute('y2',l.t.y);
+  });
+  NODES.forEach(n=>{ nodeEls.get(n).setAttribute('transform',`translate(${n.x},${n.y})`); });
+}
+
+/* hover / 选中：高亮邻域 */
+function highlight(name){
+  if(!name){ NODES.forEach(n=>nodeEls.get(n).classList.remove('faded'));
+    LINKS.forEach(l=>linkEls.get(l).classList.remove('hot','faded')); return; }
+  const keep=new Set([name,...adj[name]]);
+  NODES.forEach(n=>nodeEls.get(n).classList.toggle('faded',!keep.has(n.name)));
+  LINKS.forEach(l=>{ const e=linkEls.get(l);
+    const on=(l.s.name===name||l.t.name===name);
+    e.classList.toggle('hot',on); e.classList.toggle('faded',!on);
+  });
+}
+nodesG.addEventListener('mouseover',e=>{ const g=e.target.closest('.node'); if(g&&!localMode) highlight(g.dataset.name); });
+nodesG.addEventListener('mouseout',()=>{ if(!selected&&!localMode) highlight(null); else if(selected) highlight(selected.name); });
+
+/* ===================== 拖拽 / 缩放 / 平移 ===================== */
+const wrap=document.getElementById('canvas-wrap'), vp=document.getElementById('viewport');
+let tx=0,ty=0,scale=1;
+function applyT(){ vp.setAttribute('transform',`translate(${tx},${ty}) scale(${scale})`); }
+function toGraph(cx,cy){ const r=wrap.getBoundingClientRect(); return {x:(cx-r.left-tx)/scale, y:(cy-r.top-ty)/scale}; }
+
+let panning=false, psx,psy,ptx,pty, draggingNode=false, dsx,dsy;
+wrap.addEventListener('mousedown',e=>{
+  const g=e.target.closest('.node');
+  if(g){ dragNode=byName[g.dataset.name]; draggingNode=true; reheat(0.5);
+    const p=toGraph(e.clientX,e.clientY); dsx=p.x-dragNode.x; dsy=p.y-dragNode.y; e.preventDefault(); return; }
+  panning=true; wrap.classList.add('dragging'); psx=e.clientX; psy=e.clientY; ptx=tx; pty=ty;
+});
+window.addEventListener('mousemove',e=>{
+  if(draggingNode&&dragNode){ const p=toGraph(e.clientX,e.clientY); dragNode.x=p.x-dsx; dragNode.y=p.y-dsy; dragNode.vx=0; dragNode.vy=0; reheat(0.3); }
+  else if(panning){ tx=ptx+(e.clientX-psx); ty=pty+(e.clientY-psy); applyT(); }
+});
+window.addEventListener('mouseup',()=>{ panning=false; draggingNode=false; dragNode=null; wrap.classList.remove('dragging'); });
+wrap.addEventListener('wheel',e=>{ e.preventDefault();
+  const r=wrap.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
+  const k=e.deltaY<0?1.12:1/1.12; const ns=Math.min(3,Math.max(.3,scale*k));
+  tx=mx-(mx-tx)*(ns/scale); ty=my-(my-ty)*(ns/scale); scale=ns; applyT();
+},{passive:false});
+
+function fitView(){
+  const xs=NODES.map(n=>n.x), ys=NODES.map(n=>n.y);
+  const minX=Math.min(...xs)-60,maxX=Math.max(...xs)+60,minY=Math.min(...ys)-40,maxY=Math.max(...ys)+40;
+  const r=wrap.getBoundingClientRect();
+  scale=Math.min(r.width/(maxX-minX), r.height/(maxY-minY), 1.4);
+  tx=r.width/2-(minX+maxX)/2*scale; ty=r.height/2-(minY+maxY)/2*scale; applyT();
+}
+document.getElementById('zoomIn').onclick=()=>{ scale=Math.min(3,scale*1.2); applyT(); };
+document.getElementById('zoomOut').onclick=()=>{ scale=Math.max(.3,scale/1.2); applyT(); };
+function fitRegion(minX,minY,maxX,maxY){
+  const r=wrap.getBoundingClientRect();
+  scale=Math.min(r.width/(maxX-minX), r.height/(maxY-minY), 1.6);
+  tx=r.width/2-(minX+maxX)/2*scale; ty=r.height/2-(minY+maxY)/2*scale; applyT();
+}
+document.getElementById('fit').onclick=()=>{ if(timelineMode) applyTimeline(); else fitView(); };
+const freezeBtn=document.getElementById('freeze');
+freezeBtn.onclick=()=>{ frozen=!frozen; freezeBtn.classList.toggle('on',frozen); if(!frozen) reheat(0.5); };
+const localBtn=document.getElementById('localBtn');
+localBtn.onclick=()=>{ localMode=!localMode; localBtn.classList.toggle('on',localMode);
+  if(localMode&&selected) highlight(selected.name); else highlight(selected?selected.name:null); };
+
+/* ===================== 详情面板（Obsidian 笔记） ===================== */
+const panel=document.getElementById('panel'), panelInner=document.getElementById('panelInner');
+document.getElementById('closeBtn').onclick=()=>{ panel.classList.remove('open'); selected=null; localMode=false; localBtn.classList.remove('on'); highlight(null); };
+function enc(s){ return encodeURIComponent(s); }
+
+// 把笔记正文中出现的其它节点名转为 Obsidian 式 [[内部链接]]
+function autolink(text, self){
+  const names=NODES.map(n=>n.name).filter(nm=>nm!==self.name).sort((a,b)=>b.length-a.length);
+  let out=text, marks=[];
+  names.forEach(nm=>{
+    if(out.includes(nm) && nm.length>=2){
+      const token=` ${marks.length} `; marks.push(nm);
+      out=out.split(nm).join(token);
+    }
+  });
+  out=out.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  marks.forEach((nm,i)=>{ out=out.split(` ${i} `).join(`<span class="ilink" data-go="${nm}">${nm}</span>`); });
+  return out;
+}
+function selectNode(n,{center=true}={}){
+  selected=n; localMode=localMode; // 保持局部模式
+  NODES.forEach(x=>nodeEls.get(x).classList.toggle('selected',x===n));
+  highlight(n.name);
+  showPanel(n);
+  if(center){ const r=wrap.getBoundingClientRect(); tx=r.width*0.34-n.x*scale; ty=r.height/2-n.y*scale; applyT(); }
+}
+function showPanel(n){
+  // 关联条目（来自 ASSOC 与树邻居），用于 backlinks/相关
+  const related=[];
+  LINKS.forEach(l=>{
+    if(l.s===n||l.t===n){ const o=(l.s===n?l.t:l.s);
+      related.push({node:o, rel:l.type==="assoc"?(l.rel||"关联"):(l.s===n?"演化分枝→":"←上级类群")});
+    }
+  });
+  const links=[
+    ['🌐','中文维基百科',`https://zh.wikipedia.org/wiki/${enc(n.zh||n.name)}`],
+    ['📖','Wikipedia (EN)',`https://en.wikipedia.org/wiki/${enc(n.wiki||n.name)}`],
+    ['🅱️','百度百科',`https://baike.baidu.com/item/${enc(n.baike||n.name)}`],
+    ['🌿','Encyclopedia of Life',`https://eol.org/search?q=${enc(n.eol||n.latin)}`],
+    ['🔬','GBIF 全球生物多样性',`https://www.gbif.org/species/search?q=${enc((n.latin||n.name).split(' ')[0])}`]
+  ].map(([i,t,u])=>`<a href="${u}" target="_blank" rel="noopener"><span class="ico">${i}</span>${t}<span class="arrow">↗</span></a>`).join('');
+
+  const grpName=(()=>{ let cur=n; while(cur){ if(COLOR_MAP[cur.name]&&cur!==n) return cur.name; cur=cur._parent; } return null; })();
+
+  panelInner.innerHTML=`
+    <div class="p-rank">${n.rank}</div>
+    <h2 class="p-name">${n.name}</h2>
+    <div class="p-latin">${n.latin}</div>
+    <div class="p-meta">
+      <span class="chip era">⏳ ${n.era}</span>
+      <span class="chip">${n.extinct?'† 已灭绝':'✔ 现存延续'}</span>
+      ${grpName?`<span class="chip grp">◈ ${grpName}</span>`:''}
+    </div>
+    <hr class="p-divider">
+    <div class="wiki-box" id="wikiBox"><div class="wiki-loading">◌ 正在从维基百科获取摘要与配图…</div></div>
+    <div class="p-desc">${autolink(n.desc,n)}</div>
+    ${(n.facts&&n.facts.length)?`<div class="p-section-title">要 · 点</div>${n.facts.map(f=>`<div class="p-fact">${autolink(f,n)}</div>`).join('')}`:''}
+    <div class="p-section-title">关联条目 / 反向链接 <span class="cnt">${related.length}</span></div>
+    <div class="reflist">${related.map(r=>
+      `<div class="ref" data-go="${r.node.name}"><span class="r-name">${r.node.name}</span><span class="r-latin">${r.node.latin.split(' ·')[0]}</span><span class="r-rel">${r.rel}</span></div>`).join('')}</div>
+    <div class="p-section-title">权威百科 · 延伸查证</div>
+    <div class="links">${links}</div>
+  `;
+  panel.classList.add('open');
+  panelInner.querySelectorAll('[data-go]').forEach(el=>{
+    el.onclick=()=>{ const t=byName[el.dataset.go]; if(t) selectNode(t); };
+  });
+  fetchWiki(n);
+}
+
+/* 实时拉取维基百科摘要 + 缩略图（REST API，支持 CORS） */
+const wikiCache={};
+function fetchWiki(n){
+  const box=document.getElementById('wikiBox'); if(!box) return;
+  const lang = LANG==='en' ? 'en' : 'zh';
+  const title = lang==='en' ? (n.wiki||n.name) : (n.zh||n.name);
+  const key=lang+':'+title;
+  const render=(d)=>{
+    if(!document.getElementById('wikiBox')||selected!==n) return;
+    if(!d){ box.innerHTML=`<div class="wiki-src">（暂无维基百科摘要，可点下方链接查看）</div>`; return; }
+    const host = lang==='en'?'en.wikipedia.org':'zh.wikipedia.org';
+    box.innerHTML =
+      (d.thumb?`<img class="wiki-thumb" src="${d.thumb}" alt="${title}" referrerpolicy="no-referrer">`:'')+
+      (d.extract?`<div class="wiki-extract">${d.extract}</div>`:'')+
+      `<div class="wiki-src">摘要 &amp; 图片来源：维基百科（${host}）· CC BY-SA</div>`;
+  };
+  if(wikiCache[key]){ render(wikiCache[key]); return; }
+  fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`)
+    .then(r=>r.ok?r.json():Promise.reject())
+    .then(j=>{ const d={extract:j.extract, thumb:(j.thumbnail&&j.thumbnail.source)||(j.originalimage&&j.originalimage.source)||null};
+      wikiCache[key]=d; render(d); })
+    .catch(()=>{ wikiCache[key]=null; render(null); });
+}
+nodesG.addEventListener('click',e=>{ const g=e.target.closest('.node'); if(!g) return; selectNode(byName[g.dataset.name]); });
+
+/* ===================== 搜索 ===================== */
+const search=document.getElementById('search'), suggest=document.getElementById('suggest');
+search.addEventListener('input',()=>{
+  const q=search.value.trim().toLowerCase(); if(!q){ suggest.style.display='none'; return; }
+  const hits=NODES.filter(n=>n.name.toLowerCase().includes(q)||n.latin.toLowerCase().includes(q)).slice(0,12);
+  if(!hits.length){ suggest.style.display='none'; return; }
+  suggest.innerHTML=hits.map(n=>`<div data-name="${n.name}">${n.name}<span class="sl">${n.latin.split(' ·')[0]}</span></div>`).join('');
+  suggest.style.display='block';
+  suggest.querySelectorAll('div').forEach(d=>d.onclick=()=>{ selectNode(byName[d.dataset.name]); suggest.style.display='none'; search.value=d.dataset.name; });
+});
+search.addEventListener('blur',()=>setTimeout(()=>suggest.style.display='none',180));
+
+/* ===================== 图例 ===================== */
+document.getElementById('legGrid').innerHTML=LEGEND.map(([t,c])=>
+  `<div class="leg-item"><span class="leg-dot" style="background:${c}"></span>${t}</div>`).join('');
+
+/* ===================== 时间轴（按地质年代排布） ===================== */
+const timelineBtn=document.getElementById('timelineBtn');
+const tagBtn=document.getElementById('tagBtn');
+const exportBtn=document.getElementById('exportBtn');
+const erasG=document.getElementById('eras'), axisG=document.getElementById('axis');
+let timelineMode=false;
+const ERAS=[
+  {n:"太古宙",a:4000,b:2500,c:"#2a3b34"},
+  {n:"元古宙",a:2500,b:541,c:"#243a44"},
+  {n:"古生代",a:541,b:252,c:"#3a3320"},
+  {n:"中生代",a:252,b:66,c:"#3a2a1e"},
+  {n:"新生代",a:66,b:0,c:"#2e2236"}
+];
+const TL_X0=160, TL_X1=1120, TL_Y0=130, TL_Y1=560, T_MIN=0.2, T_MAX=4000;
+const LMIN=Math.log10(T_MIN), LMAX=Math.log10(T_MAX);
+function txTime(mya){ const l=Math.log10(Math.max(mya,T_MIN)); return TL_X0+(LMAX-l)/(LMAX-LMIN)*(TL_X1-TL_X0); }
+const LANE_ORDER=["生命起源","微生物","植物","真菌","动物","无脊椎动物","鱼类","两栖·爬行","鸟类","哺乳动物"];
+
+function applyTimeline(){
+  timelineMode=true; frozen=true; timelineBtn.classList.add('on');
+  const present=LANE_ORDER.filter(g=>NODES.some(n=>n.coarse===g));
+  const laneGap=Math.min(70,(TL_Y1-TL_Y0)/Math.max(1,present.length-1));
+  const laneY={}; present.forEach((g,i)=>laneY[g]=TL_Y0+i*laneGap);
+  present.forEach(g=>{
+    const list=NODES.filter(n=>n.coarse===g).sort((a,b)=>b.mya-a.mya);
+    list.forEach((n,idx)=>{ n.x=txTime(n.mya); n.y=laneY[g]+((idx%3)-1)*24; });
+  });
+  drawEras(present,laneY,laneGap);
+  draw();
+  const top=TL_Y0-laneGap*0.6, bot=TL_Y1+laneGap*0.6;
+  fitRegion(TL_X0-120, top-30, TL_X1+40, bot+30);
+}
+function drawEras(present,laneY,laneGap){
+  erasG.innerHTML=''; axisG.innerHTML='';
+  const top=TL_Y0-laneGap*0.6, bot=TL_Y1+laneGap*0.6;
+  ERAS.forEach(e=>{
+    const x1=txTime(e.a), x2=txTime(e.b);
+    const r=document.createElementNS(svgNS,'rect');
+    r.setAttribute('class','era-band'); r.setAttribute('x',x1); r.setAttribute('y',top);
+    r.setAttribute('width',Math.max(1,x2-x1)); r.setAttribute('height',bot-top); r.setAttribute('fill',e.c);
+    erasG.appendChild(r);
+    const lab=document.createElementNS(svgNS,'text');
+    lab.setAttribute('class','era-label'); lab.setAttribute('x',(x1+x2)/2); lab.setAttribute('y',top-10);
+    lab.textContent=e.n; erasG.appendChild(lab);
+  });
+  [4000,1000,541,252,66,0].forEach(t=>{
+    const x=txTime(Math.max(t,T_MIN));
+    const ln=document.createElementNS(svgNS,'line');
+    ln.setAttribute('class','axis-tick'); ln.setAttribute('x1',x); ln.setAttribute('x2',x);
+    ln.setAttribute('y1',top); ln.setAttribute('y2',bot); axisG.appendChild(ln);
+    const tl=document.createElementNS(svgNS,'text'); tl.setAttribute('class','axis-time');
+    tl.setAttribute('x',x); tl.setAttribute('y',bot+16);
+    tl.textContent = t===0?'现今':t+' Mya'; axisG.appendChild(tl);
+  });
+  present.forEach(g=>{
+    const tl=document.createElementNS(svgNS,'text'); tl.setAttribute('class','lane-label');
+    tl.setAttribute('x',TL_X0-16); tl.setAttribute('y',laneY[g]+4); tl.textContent=g;
+    axisG.appendChild(tl);
+  });
+  drawExtinctions(top,bot);
+}
+function setTimeline(on){
+  if(on){ applyTimeline(); applyCursor(); saveState&&saveState(); }
+  else { timelineMode=false; timelineBtn.classList.remove('on'); erasG.innerHTML=''; axisG.innerHTML='';
+    NODES.forEach(n=>nodeEls.get(n).classList.remove('pre-exist'));
+    frozen=false; freezeBtn.classList.remove('on'); reheat(0.7); saveState(); }
+}
+timelineBtn.onclick=()=>setTimeline(!timelineMode);
+
+/* ===================== 标签筛选 ===================== */
+const filterBar=document.getElementById('filterBar');
+let activeGroups=new Set(), activeStatus=new Set();
+function grpColor(g){ const n=NODES.find(x=>x.coarse===g); return n?n.color:'#c8a85a'; }
+function applyFilter(){
+  NODES.forEach(n=>{
+    const okG=!activeGroups.size||activeGroups.has(n.coarse);
+    const okS=!activeStatus.size||activeStatus.has(n.status);
+    n._hidden=!(okG&&okS);
+    nodeEls.get(n).classList.toggle('filtered',n._hidden);
+  });
+  LINKS.forEach(l=>linkEls.get(l).classList.toggle('filtered', l.s._hidden||l.t._hidden));
+  if(typeof saveState==='function') saveState();
+}
+(function buildFilter(){
+  const groups=[...new Set(NODES.map(n=>n.coarse))];
+  filterBar.innerHTML =
+    groups.map(g=>`<span class="tagchip" data-g="${g}"><span class="sw" style="background:${grpColor(g)}"></span>${g}</span>`).join('')
+    + `<span class="tagchip status" data-s="现存">✔ 现存</span><span class="tagchip status" data-s="已灭绝">† 已灭绝</span>`
+    + `<span class="tagchip" id="clearTags" style="border-color:var(--gold);color:var(--gold)">✕ 清空</span>`;
+  filterBar.querySelectorAll('[data-g]').forEach(c=>c.onclick=()=>{
+    const g=c.dataset.g; activeGroups.has(g)?activeGroups.delete(g):activeGroups.add(g); c.classList.toggle('on'); applyFilter();});
+  filterBar.querySelectorAll('[data-s]').forEach(c=>c.onclick=()=>{
+    const s=c.dataset.s; activeStatus.has(s)?activeStatus.delete(s):activeStatus.add(s); c.classList.toggle('on'); applyFilter();});
+  document.getElementById('clearTags').onclick=()=>{ activeGroups.clear(); activeStatus.clear();
+    filterBar.querySelectorAll('.tagchip.on').forEach(e=>e.classList.remove('on')); applyFilter(); };
+})();
+tagBtn.onclick=()=>{ filterBar.classList.toggle('open'); tagBtn.classList.toggle('on'); };
+
+/* ===================== 导出为图片（PNG） ===================== */
+const EXPORT_CSS=`
+.link{stroke:#4a5b52;stroke-width:1.3;opacity:.55;}
+.link.assoc{stroke:#6c5aa8;stroke-dasharray:4 4;opacity:.5;}
+.node circle{stroke:#0c1410;stroke-width:1.5;}
+.node.extinct circle{stroke-dasharray:3 2;stroke:#d6c9a8;}
+.node text{fill:#e7ddc4;font-size:11px;font-family:Georgia,'Songti SC',serif;paint-order:stroke;stroke:#11171a;stroke-width:3px;}
+.node text.latin{font-style:italic;fill:#9fb0a6;font-size:9px;}
+.era-band{opacity:.55;}
+.era-label{fill:#cdbf9b;font-size:13px;font-style:italic;text-anchor:middle;font-family:Georgia,serif;}
+.lane-label{fill:#9fb0a6;font-size:11.5px;text-anchor:end;font-family:Georgia,serif;}
+.axis-tick{stroke:#4a5b52;stroke-dasharray:2 4;opacity:.4;}
+.axis-time{fill:#8a9a90;font-size:10.5px;text-anchor:middle;font-family:Georgia,serif;}
+`;
+function exportPNG(){
+  const vis=NODES.filter(n=>!n._hidden);
+  if(!vis.length){ alert('当前筛选下没有可导出的节点'); return; }
+  const xs=vis.map(n=>n.x), ys=vis.map(n=>n.y), pad=70;
+  let minX=Math.min(...xs)-pad, maxX=Math.max(...xs)+pad, minY=Math.min(...ys)-pad, maxY=Math.max(...ys)+pad;
+  if(timelineMode){ minX-=80; minY-=40; maxY+=40; }
+  const w=maxX-minX, h=maxY-minY+40;  // 底部留标题空间
+  const clone=document.getElementById('graph').cloneNode(true);
+  clone.setAttribute('xmlns',svgNS); clone.setAttribute('width',w); clone.setAttribute('height',h);
+  clone.setAttribute('viewBox',`${minX} ${minY} ${w} ${h}`);
+  clone.querySelector('#viewport').removeAttribute('transform');
+  clone.querySelectorAll('.faded').forEach(e=>e.classList.remove('faded'));
+  clone.querySelectorAll('.filtered').forEach(e=>e.remove());
+  clone.querySelectorAll('.halo').forEach(e=>e.remove());
+  const bg=document.createElementNS(svgNS,'rect');
+  bg.setAttribute('x',minX); bg.setAttribute('y',minY); bg.setAttribute('width',w); bg.setAttribute('height',h); bg.setAttribute('fill','#11171a');
+  clone.insertBefore(bg,clone.firstChild);
+  const st=document.createElementNS(svgNS,'style'); st.textContent=EXPORT_CSS; clone.insertBefore(st,clone.firstChild);
+  const cap=document.createElementNS(svgNS,'text');
+  cap.setAttribute('x',minX+w/2); cap.setAttribute('y',maxY+22); cap.setAttribute('text-anchor','middle');
+  cap.setAttribute('fill','#c8a85a'); cap.setAttribute('font-size','22'); cap.setAttribute('font-style','italic');
+  cap.setAttribute('font-family','Georgia,serif');
+  cap.textContent='生命之树 · On the Origin of Species';
+  clone.appendChild(cap);
+  const xml=new XMLSerializer().serializeToString(clone);
+  const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(xml);
+  const img=new Image();
+  img.onload=()=>{
+    const sc=2, cv=document.createElement('canvas'); cv.width=Math.round(w*sc); cv.height=Math.round(h*sc);
+    const ctx=cv.getContext('2d'); ctx.scale(sc,sc); ctx.drawImage(img,0,0);
+    cv.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b);
+      a.download='生命之树-进化图谱.png'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),3000); }, 'image/png');
+  };
+  img.onerror=()=>alert('导出失败，请重试');
+  img.src=url;
+}
+exportBtn.onclick=exportPNG;
+
+/* ===================== 溯源：最近共同祖先(MRCA)路径 ===================== */
+const traceBtn=document.getElementById('traceBtn');
+const pathBanner=document.getElementById('pathBanner');
+let traceMode=false, traceA=null;
+function clearPath(){
+  NODES.forEach(n=>nodeEls.get(n).classList.remove('path','mrca'));
+  LINKS.forEach(l=>linkEls.get(l).classList.remove('path'));
+  pathBanner.classList.remove('show');
+}
+function ancestors(n){ const a=[]; let c=n; while(c){ a.push(c); c=c._parent; } return a; }
+function tracePath(a,b){
+  const A=ancestors(a), Bset=new Set(ancestors(b).map(x=>x.name));
+  let mrca=A.find(x=>Bset.has(x.name));
+  if(!mrca) return;
+  clearPath();
+  const mark=(from)=>{ let c=from; while(c && c!==mrca){ nodeEls.get(c).classList.add('path');
+    // 标记 c 与父之间的树枝
+    const l=LINKS.find(L=>L.type==='tree'&&L.t===c); if(l) linkEls.get(l).classList.add('path'); c=c._parent; } };
+  mark(a); mark(b);
+  nodeEls.get(mrca).classList.add('mrca');
+  nodeEls.get(a).classList.add('path'); nodeEls.get(b).classList.add('path');
+  const t=L=>L; // 占位
+  pathBanner.innerHTML = LANG==='en'
+    ? `Path: <b>${a.latin.split(' ·')[0]}</b> ↔ <b>${b.latin.split(' ·')[0]}</b> · MRCA = <b>${mrca.latin.split(' ·')[0]}</b>（${mrca.era}）`
+    : `演化路径：<b>${a.name}</b> ↔ <b>${b.name}</b> · 最近共同祖先 = <b>${mrca.name}</b>（${mrca.era}）`;
+  pathBanner.classList.add('show');
+}
+traceBtn.onclick=()=>{ traceMode=!traceMode; traceBtn.classList.toggle('on',traceMode); traceA=null; clearPath();
+  pathBanner.innerHTML = LANG==='en'?'Trace mode: click the first species…':'溯源模式：请点击第一个物种…';
+  pathBanner.classList.toggle('show',traceMode);
+};
+
+/* ===================== 大灭绝标记 + 时间游标 ===================== */
+const MASS_EXT=[
+  {n:"奥陶纪末",t:445},{n:"泥盆纪末",t:372},{n:"二叠纪末",t:252},{n:"三叠纪末",t:201},{n:"白垩纪末",t:66}
+];
+let cursorMya=null;
+function drawExtinctions(top,bot){
+  MASS_EXT.forEach(e=>{
+    const x=txTime(e.t);
+    const ln=document.createElementNS(svgNS,'line'); ln.setAttribute('class','ext-line');
+    ln.setAttribute('x1',x);ln.setAttribute('x2',x);ln.setAttribute('y1',top);ln.setAttribute('y2',bot); axisG.appendChild(ln);
+    const tl=document.createElementNS(svgNS,'text'); tl.setAttribute('class','ext-label');
+    tl.setAttribute('x',x);tl.setAttribute('y',top-26); tl.textContent='✶ '+e.n; axisG.appendChild(tl);
+  });
+  // 可拖动时间游标
+  cursorMya = cursorMya==null?66:cursorMya;
+  const cg=document.createElementNS(svgNS,'g'); cg.setAttribute('id','cursorG');
+  const cx=txTime(cursorMya);
+  const hit=document.createElementNS(svgNS,'line'); hit.setAttribute('id','cursorHit');
+  hit.setAttribute('x1',cx);hit.setAttribute('x2',cx);hit.setAttribute('y1',top);hit.setAttribute('y2',bot);
+  const ln=document.createElementNS(svgNS,'line'); ln.setAttribute('id','cursorLine');
+  ln.setAttribute('x1',cx);ln.setAttribute('x2',cx);ln.setAttribute('y1',top);ln.setAttribute('y2',bot);
+  const badge=document.createElementNS(svgNS,'rect'); badge.setAttribute('id','cursorBadge');
+  badge.setAttribute('x',cx-34);badge.setAttribute('y',top-2);badge.setAttribute('width',68);badge.setAttribute('height',18);badge.setAttribute('rx',9);
+  const lab=document.createElementNS(svgNS,'text'); lab.setAttribute('id','cursorLabel');
+  lab.setAttribute('x',cx);lab.setAttribute('y',top+11); lab.textContent=fmtMya(cursorMya);
+  cg.append(hit,ln,badge,lab); axisG.appendChild(cg);
+  applyCursor();
+  hit.addEventListener('mousedown',e=>{ cursorDrag=true; e.stopPropagation(); });
+  hit.addEventListener('touchstart',e=>{ cursorDrag=true; e.stopPropagation(); },{passive:false});
+}
+// 时间游标拖动状态（模块级，避免重复绑定 window 监听）
+let cursorDrag=false;
+function moveCursor(clientX){
+  const cg=document.getElementById('cursorG'); if(!cg) return;
+  const p=toGraph(clientX,0); cursorMya=Math.max(0,Math.min(T_MAX,invTime(p.x)));
+  const nx=txTime(Math.max(cursorMya,T_MIN));
+  cg.querySelector('#cursorHit').setAttribute('x1',nx); cg.querySelector('#cursorHit').setAttribute('x2',nx);
+  cg.querySelector('#cursorLine').setAttribute('x1',nx); cg.querySelector('#cursorLine').setAttribute('x2',nx);
+  cg.querySelector('#cursorBadge').setAttribute('x',nx-34);
+  const lab=cg.querySelector('#cursorLabel'); lab.setAttribute('x',nx); lab.textContent=fmtMya(cursorMya);
+  applyCursor();
+}
+window.addEventListener('mousemove',e=>{ if(cursorDrag) moveCursor(e.clientX); });
+window.addEventListener('mouseup',()=>cursorDrag=false);
+window.addEventListener('touchmove',e=>{ if(cursorDrag&&e.touches[0]) moveCursor(e.touches[0].clientX); },{passive:false});
+window.addEventListener('touchend',()=>cursorDrag=false);
+function invTime(x){ const f=(x-TL_X0)/(TL_X1-TL_X0); const l=LMAX-f*(LMAX-LMIN); return Math.pow(10,l); }
+function fmtMya(m){ return m<1 ? Math.round(m*1000)+' 千年' : (m>=1000? (m/1000).toFixed(1)+' Ga' : Math.round(m)+' Mya'); }
+function applyCursor(){
+  if(!timelineMode||cursorMya==null){ NODES.forEach(n=>nodeEls.get(n).classList.remove('pre-exist')); return; }
+  NODES.forEach(n=>nodeEls.get(n).classList.toggle('pre-exist', n.mya < cursorMya)); // 该时刻尚未出现者淡出
+}
+
+/* ===================== 触摸手势：拖动 / 双指缩放 ===================== */
+let touchMode=null, pinchD0=0, pinchS0=1, touchT0={x:0,y:0}, lastTouch={x:0,y:0};
+wrap.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){ const t=e.touches[0]; const el=document.elementFromPoint(t.clientX,t.clientY);
+    const g=el&&el.closest&&el.closest('.node');
+    if(g){ dragNode=byName[g.dataset.name]; touchMode='node'; const p=toGraph(t.clientX,t.clientY); dsx=p.x-dragNode.x; dsy=p.y-dragNode.y; }
+    else { touchMode='pan'; lastTouch={x:t.clientX,y:t.clientY}; }
+  } else if(e.touches.length===2){ touchMode='pinch';
+    const [a,b]=e.touches; pinchD0=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY); pinchS0=scale;
+    touchT0={x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2};
+  }
+},{passive:false});
+wrap.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(touchMode==='node'&&dragNode&&e.touches[0]){ const t=e.touches[0]; const p=toGraph(t.clientX,t.clientY);
+    dragNode.x=p.x-dsx; dragNode.y=p.y-dsy; dragNode.vx=0; dragNode.vy=0; reheat(0.3); }
+  else if(touchMode==='pan'&&e.touches[0]){ const t=e.touches[0]; tx+=t.clientX-lastTouch.x; ty+=t.clientY-lastTouch.y;
+    lastTouch={x:t.clientX,y:t.clientY}; applyT(); }
+  else if(touchMode==='pinch'&&e.touches.length===2){ const [a,b]=e.touches;
+    const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY); const ns=Math.min(3,Math.max(.3,pinchS0*d/pinchD0));
+    const r=wrap.getBoundingClientRect(); const mx=touchT0.x-r.left,my=touchT0.y-r.top;
+    tx=mx-(mx-tx)*(ns/scale); ty=my-(my-ty)*(ns/scale); scale=ns; applyT(); }
+},{passive:false});
+wrap.addEventListener('touchend',e=>{ if(e.touches.length===0){ touchMode=null; dragNode=null; } },{passive:false});
+
+/* ===================== 键盘导航 + 无障碍 ===================== */
+function a11yInit(){ NODES.forEach(n=>{ const g=nodeEls.get(n); if(!g) return;
+  g.setAttribute('tabindex','0'); g.setAttribute('role','button'); g.setAttribute('aria-label', n.name+' '+n.latin); }); }
+let kbNode=null;
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  const focusEl=document.activeElement;
+  if((e.key==='Enter'||e.key===' ')&&focusEl&&focusEl.classList&&focusEl.classList.contains('node')){
+    e.preventDefault(); selectNode(byName[focusEl.dataset.name]); return; }
+  if(e.key==='Escape'){ document.getElementById('closeBtn').click(); return; }
+  if(e.key==='Tab') return; // 让浏览器处理焦点
+  if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(e.key)){
+    if(!selected){ return; } e.preventDefault();
+    const neigh=[...adj[selected.name]].map(nm=>byName[nm]);
+    if(!neigh.length) return;
+    // 按方向选最匹配的邻居
+    const dir={ArrowRight:[1,0],ArrowLeft:[-1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+    let best=null,bestScore=-1e9;
+    neigh.forEach(o=>{ const vx=o.x-selected.x,vy=o.y-selected.y,len=Math.hypot(vx,vy)||1;
+      const score=(vx/len)*dir[0]+(vy/len)*dir[1]; if(score>bestScore){bestScore=score;best=o;} });
+    if(best&&bestScore>0.1){ selectNode(best); nodeEls.get(best).focus(); }
+  }
+});
+
+/* ===================== 可分享状态（URL hash） ===================== */
+let restoring=false;
+function saveState(){
+  if(restoring) return;
+  const s={};
+  if(selected) s.sel=selected.name;
+  if(timelineMode) s.mode='timeline';
+  if(activeGroups.size) s.g=[...activeGroups];
+  if(activeStatus.size) s.s=[...activeStatus];
+  if(LANG!=='zh') s.lang=LANG;
+  const str=encodeURIComponent(JSON.stringify(s));
+  try{ history.replaceState(null,'','#'+str); }catch(_){ try{ location.hash=str; }catch(__){} }
+}
+function loadState(){
+  if(!location.hash||location.hash.length<2) return false;
+  let s; try{ s=JSON.parse(decodeURIComponent(location.hash.slice(1))); }catch(_){ return false; }
+  restoring=true;
+  if(s.lang==='en') setLang('en');
+  if(s.g){ s.g.forEach(g=>{ activeGroups.add(g); const c=filterBar.querySelector(`[data-g="${g}"]`); if(c)c.classList.add('on'); }); }
+  if(s.s){ s.s.forEach(st=>{ activeStatus.add(st); const c=filterBar.querySelector(`[data-s="${st}"]`); if(c)c.classList.add('on'); }); }
+  if(s.g||s.s){ applyFilter(); filterBar.classList.add('open'); tagBtn.classList.add('on'); }
+  if(s.mode==='timeline') setTimeline(true);
+  if(s.sel&&byName[s.sel]) selectNode(byName[s.sel]);
+  restoring=false;
+  return true;
+}
+
+/* ===================== 导出：PNG / SVG ===================== */
+const exportMenu=document.getElementById('exportMenu');
+function buildExportSVG(){
+  const vis=NODES.filter(n=>!n._hidden);
+  if(!vis.length) return null;
+  const xs=vis.map(n=>n.x), ys=vis.map(n=>n.y), pad=70;
+  let minX=Math.min(...xs)-pad, maxX=Math.max(...xs)+pad, minY=Math.min(...ys)-pad, maxY=Math.max(...ys)+pad;
+  if(timelineMode){ minX-=80; minY-=60; maxY+=50; }
+  const w=maxX-minX, h=maxY-minY+44;
+  const clone=document.getElementById('graph').cloneNode(true);
+  clone.setAttribute('xmlns',svgNS); clone.setAttribute('width',w); clone.setAttribute('height',h);
+  clone.setAttribute('viewBox',`${minX} ${minY} ${w} ${h}`);
+  clone.querySelector('#viewport').removeAttribute('transform');
+  clone.querySelectorAll('.faded,.pre-exist').forEach(e=>e.classList.remove('faded','pre-exist'));
+  clone.querySelectorAll('.filtered').forEach(e=>e.remove());
+  clone.querySelectorAll('.halo').forEach(e=>e.remove());
+  const bg=document.createElementNS(svgNS,'rect');
+  bg.setAttribute('x',minX);bg.setAttribute('y',minY);bg.setAttribute('width',w);bg.setAttribute('height',h);bg.setAttribute('fill','#11171a');
+  clone.insertBefore(bg,clone.firstChild);
+  const st=document.createElementNS(svgNS,'style'); st.textContent=EXPORT_CSS; clone.insertBefore(st,clone.firstChild);
+  const cap=document.createElementNS(svgNS,'text');
+  cap.setAttribute('x',minX+w/2);cap.setAttribute('y',maxY+24);cap.setAttribute('text-anchor','middle');
+  cap.setAttribute('fill','#c8a85a');cap.setAttribute('font-size','22');cap.setAttribute('font-style','italic');cap.setAttribute('font-family','Georgia,serif');
+  cap.textContent='生命之树 · On the Origin of Species';
+  clone.appendChild(cap);
+  return {xml:new XMLSerializer().serializeToString(clone), w, h};
+}
+function download(href,name){ const a=document.createElement('a'); a.href=href; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); }
+function exportSVG(){
+  const o=buildExportSVG(); if(!o){ alert('当前筛选下没有可导出的节点'); return; }
+  const blob=new Blob([o.xml],{type:'image/svg+xml;charset=utf-8'});
+  const url=URL.createObjectURL(blob); download(url,'生命之树-进化图谱.svg'); setTimeout(()=>URL.revokeObjectURL(url),3000);
+}
+function exportPNG2(){
+  const o=buildExportSVG(); if(!o){ alert('当前筛选下没有可导出的节点'); return; }
+  const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(o.xml);
+  const img=new Image();
+  img.onload=()=>{ const sc=2, cv=document.createElement('canvas'); cv.width=Math.round(o.w*sc); cv.height=Math.round(o.h*sc);
+    const ctx=cv.getContext('2d'); ctx.scale(sc,sc); ctx.drawImage(img,0,0);
+    cv.toBlob(b=>{ const u=URL.createObjectURL(b); download(u,'生命之树-进化图谱.png'); setTimeout(()=>URL.revokeObjectURL(u),3000); },'image/png'); };
+  img.onerror=()=>alert('导出失败，请重试');
+  img.src=url;
+}
+exportBtn.onclick=(e)=>{ e.stopPropagation();
+  const r=exportBtn.getBoundingClientRect(), wr=wrap.getBoundingClientRect();
+  exportMenu.style.left=(r.left-wr.left)+'px'; exportMenu.style.top=(r.bottom-wr.top+6)+'px';
+  exportMenu.classList.toggle('open'); };
+exportMenu.querySelectorAll('button').forEach(b=>b.onclick=()=>{ exportMenu.classList.remove('open');
+  b.dataset.fmt==='svg'?exportSVG():exportPNG2(); });
+document.addEventListener('click',e=>{ if(!exportMenu.contains(e.target)&&e.target!==exportBtn) exportMenu.classList.remove('open'); });
+
+/* ===================== 国际化（中 / EN） ===================== */
+let LANG='zh';
+const I18N={
+  zh:{ subtitle:'生物进化知识图谱 · ', byline:'拖动节点 · 悬停查看关联网络 · 笔记内 [[ 双向链接 ]] · 连通权威百科',
+    search:'搜索生物（恐龙 / Homo / 三叶虫）…', freeze:'❄ 物理', local:'◎ 局部', timeline:'🕒 时间轴',
+    tag:'🏷 标签', export:'⬇ 导出', trace:'🧭 溯源', hint:'拖拽节点重排 · 滚轮/双指缩放 · 点击查看笔记 · 方向键导航',
+    legendTitle:'图 例 · LEGENDA', kin:'演化亲缘（树枝）', assoc:'关联 / 协同演化' },
+  en:{ subtitle:'Tree of Life · Knowledge Graph · ', byline:'Drag nodes · hover to reveal links · [[ wiki-links ]] in notes · connected to encyclopedias',
+    search:'Search taxa (Dinosaur / Homo / Trilobite)…', freeze:'❄ Physics', local:'◎ Local', timeline:'🕒 Timeline',
+    tag:'🏷 Tags', export:'⬇ Export', trace:'🧭 Trace', hint:'Drag nodes · wheel/pinch to zoom · click for notes · arrow keys to navigate',
+    legendTitle:'LEGEND', kin:'Evolutionary kinship', assoc:'Association / co-evolution' }
+};
+function setLang(lang){
+  LANG=lang; document.documentElement.lang = lang==='en'?'en':'zh-CN';
+  const t=I18N[lang];
+  document.querySelector('.subtitle').innerHTML = t.subtitle+'<span class="latin">On the Origin of Species</span>';
+  document.querySelector('.byline').textContent = t.byline;
+  search.placeholder=t.search;
+  freezeBtn.querySelector('.lbl').textContent=t.freeze;
+  localBtn.querySelector('.lbl').textContent=t.local;
+  timelineBtn.querySelector('.lbl').textContent=t.timeline;
+  tagBtn.querySelector('.lbl').textContent=t.tag;
+  exportBtn.querySelector('.lbl').textContent=t.export;
+  traceBtn.querySelector('.lbl').textContent=t.trace;
+  document.getElementById('hint').textContent=t.hint;
+  document.querySelector('#legend b').textContent=t.legendTitle;
+  const foot=document.querySelectorAll('#legend .leg-foot span');
+  if(foot[0]) foot[0].innerHTML='<span class="lf-line"></span>'+t.kin;
+  if(foot[1]) foot[1].innerHTML='<span class="lf-line assoc"></span>'+t.assoc;
+  langBtn.classList.toggle('on',lang==='en');
+  // 节点标签：EN 模式以学名为主
+  NODES.forEach(n=>{ const g=nodeEls.get(n); const tx=g.querySelector('text:not(.latin)'), lt=g.querySelector('text.latin');
+    if(lang==='en'){ tx.textContent=n.latin.split(' ·')[0]; lt.textContent=n.name; }
+    else { tx.textContent=n.name; lt.textContent=n.latin.split(' ·')[0]; } });
+  if(selected) showPanel(selected);
+  saveState();
+}
+const langBtn=document.getElementById('langBtn');
+langBtn.onclick=()=>setLang(LANG==='zh'?'en':'zh');
+
+/* 选中/筛选/模式变化时同步 URL */
+const _selectNode=selectNode;
+selectNode=function(n,opts){
+  if(traceMode){ // 溯源模式下点击 = 选路径端点
+    if(!traceA){ traceA=n; clearPath(); nodeEls.get(n).classList.add('path');
+      pathBanner.innerHTML=(LANG==='en'?'First: ':'起点：')+`<b>${LANG==='en'?n.latin.split(' ·')[0]:n.name}</b> · `+(LANG==='en'?'click the second species':'再点第二个物种'); pathBanner.classList.add('show'); return; }
+    tracePath(traceA,n); traceA=null; _selectNode(n,opts); return;
+  }
+  _selectNode(n,opts); saveState();
+};
+
+/* ===================== 启动 ===================== */
+build();
+// 预跑几十帧让布局展开
+for(let i=0;i<260;i++){ frozenStep(); }
+function frozenStep(){ // 静默模拟一帧（不绘制）
+  for(let i=0;i<NODES.length;i++){ const a=NODES[i];
+    for(let j=i+1;j<NODES.length;j++){ const b=NODES[j];
+      let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||.01,d=Math.sqrt(d2),f=REPULSION/d2;
+      a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f; } }
+  LINKS.forEach(l=>{ const rest=l.type==="assoc"?170:95,k=l.type==="assoc"?0.012:0.035;
+    let dx=l.t.x-l.s.x,dy=l.t.y-l.s.y,d=Math.sqrt(dx*dx+dy*dy)||.01,f=(d-rest)*k;
+    l.s.vx+=dx/d*f;l.s.vy+=dy/d*f;l.t.vx-=dx/d*f;l.t.vy-=dy/d*f; });
+  NODES.forEach(n=>{ n.vx+=(600-n.x)*CENTER;n.vy+=(330-n.y)*CENTER;n.vx*=DAMP;n.vy*=DAMP;n.x+=n.vx;n.y+=n.vy; });
+}
+draw(); fitView(); reheat(0.4); kick(); a11yInit();
+// 恢复 URL 状态（同步）：分享链接直达，面板瞬时展开（关闭首帧动画）
+panel.style.transition='none';
+const _restored = loadState();
+requestAnimationFrame(()=>{ panel.style.transition=''; });
+if(!_restored){ setTimeout(()=>selectNode(TREE,{center:false}),60); }
+</script>
+</body>
+</html>
